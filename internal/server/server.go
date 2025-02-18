@@ -57,13 +57,19 @@ func (s *Server) OnTraffic(c gnet.Conn) gnet.Action {
 
 	request, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(buf)))
 	if err != nil {
-		c.Write([]byte("HTTP/1.1 400 Bad Request\r\n\r\n"))
+		_, err := c.Write([]byte("HTTP/1.1 400 Bad Request\r\n\r\n"))
+		if err != nil {
+			log.Println("Failed to write response:", err)
+		}
 		return gnet.Close
 	}
 
 	backend := s.pool.GetNextPeer()
 	if backend == nil {
-		c.Write([]byte("HTTP/1.1 503 Service Unavailable\r\n\r\n"))
+		_, err := c.Write([]byte("HTTP/1.1 503 Service Unavailable\r\n\r\n"))
+		if err != nil {
+			log.Println("Failed to get backend:", err)
+		}
 		return gnet.Close
 	}
 
@@ -80,7 +86,10 @@ func (s *Server) OnTraffic(c gnet.Conn) gnet.Action {
 	// Create new request
 	proxyReq, err := http.NewRequest(request.Method, backendURL.String(), request.Body)
 	if err != nil {
-		c.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+		_, err := c.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+		if err != nil {
+			log.Println("Failed to create request:", err)
+		}
 		return gnet.Close
 	}
 
@@ -91,7 +100,10 @@ func (s *Server) OnTraffic(c gnet.Conn) gnet.Action {
 	resp, err := client.Do(proxyReq)
 	if err != nil {
 		backend.IncrementErrors()
-		c.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
+		_, err := c.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
+		if err != nil {
+			log.Println("Failed to write response:", err)
+		}
 		return gnet.Close
 	}
 	defer resp.Body.Close()
@@ -99,11 +111,18 @@ func (s *Server) OnTraffic(c gnet.Conn) gnet.Action {
 	// Write response back to client
 	responseData, err := httputil.DumpResponse(resp, true)
 	if err != nil {
-		c.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+		_, err := c.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n\r\n"))
+		if err != nil {
+			log.Println("Failed to write response:", err)
+		}
 		return gnet.Close
 	}
 
-	c.Write(responseData)
+	_, err = c.Write(responseData)
+	if err != nil {
+		log.Println("Failed to write response:", err)
+		return gnet.Close
+	}
 	return gnet.None
 }
 
