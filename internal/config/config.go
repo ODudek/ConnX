@@ -39,16 +39,16 @@ func Load(path string) (*Config, error) {
 
 func (c *Config) Validate() error {
 	if c.Server.Port == 0 {
-		c.Server.Port = 8080 // domyślny port
+		c.Server.Port = 8080 // default port
 	}
 	if c.Server.Host == "" {
-		c.Server.Host = "0.0.0.0" // domyślny host
+		c.Server.Host = "0.0.0.0" // default host
 	}
 	if c.HealthCheck.Interval == 0 {
-		c.HealthCheck.Interval = 30 // domyślny interwał health check (sekundy)
+		c.HealthCheck.Interval = 30 // default health check interval (seconds)
 	}
 	if c.HealthCheck.Timeout == 0 {
-		c.HealthCheck.Timeout = 5 // domyślny timeout (sekundy)
+		c.HealthCheck.Timeout = 5 // default timeout (seconds)
 	}
 	return nil
 }

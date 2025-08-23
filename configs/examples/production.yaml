@@ -1,0 +1,16 @@
+# Production ConnX configuration
+# Optimized for production use with multiple backends
+
+server:
+  port: 80
+  host: "0.0.0.0"
+
+backends:
+  - "http://app-server-1:8080"
+  - "http://app-server-2:8080"
+  - "http://app-server-3:8080"
+  - "http://app-server-4:8080"
+
+healthCheck:
+  interval: 10  # More frequent health checks in production
+  timeout: 3    # Faster timeout for better responsiveness

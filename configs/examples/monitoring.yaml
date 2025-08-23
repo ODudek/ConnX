@@ -1,0 +1,24 @@
+# ConnX configuration with monitoring focus
+# Shows how to set up ConnX for monitoring with Prometheus
+
+server:
+  port: 8080
+  host: "0.0.0.0"
+
+backends:
+  - "http://web-app-1:3000"
+  - "http://web-app-2:3000"
+  - "http://web-app-3:3000"
+
+healthCheck:
+  interval: 15  # Frequent health checks for better monitoring
+  timeout: 5
+
+# To monitor with Prometheus, add this to your prometheus.yml:
+#
+# scrape_configs:
+#   - job_name: 'connx'
+#     static_configs:
+#       - targets: ['connx:8080']
+#     metrics_path: '/metrics'
+#     scrape_interval: 10s

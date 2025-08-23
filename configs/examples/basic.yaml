@@ -1,0 +1,14 @@
+# Basic ConnX configuration
+# Minimal setup for getting started
+
+server:
+  port: 8080
+  host: "0.0.0.0"
+
+backends:
+  - "http://localhost:3001"
+  - "http://localhost:3002"
+
+healthCheck:
+  interval: 30  # Check backends every 30 seconds
+  timeout: 5    # Timeout after 5 seconds

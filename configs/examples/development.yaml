@@ -1,0 +1,14 @@
+# Development ConnX configuration
+# Suitable for local development and testing
+
+server:
+  port: 8000
+  host: "127.0.0.1"
+
+backends:
+  - "http://localhost:3000"
+  - "http://localhost:3001"
+
+healthCheck:
+  interval: 60  # Less frequent checks in development
+  timeout: 10   # Longer timeout for development environments
