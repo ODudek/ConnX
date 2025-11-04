@@ -1,0 +1,31 @@
+# Configuration with rate limiting enabled
+server:
+  port: 8080
+  host: "0.0.0.0"
+  shutdownTimeout: 30
+
+backends:
+  - url: "http://backend1:8080"
+    weight: 1
+  - url: "http://backend2:8080"
+    weight: 1
+
+loadBalancing:
+  algorithm: "round-robin"
+
+healthCheck:
+  interval: 30
+  timeout: 5
+
+circuitBreaker:
+  enabled: true
+  maxFailures: 5
+  timeout: 60
+  resetTimeout: 30
+  halfOpenSuccess: 2
+
+rateLimit:
+  enabled: true
+  requestsPerSec: 1000  # Allow 1000 requests per second
+  burst: 2000           # Allow bursts up to 2000
+  perIP: true           # Enable per-IP rate limiting

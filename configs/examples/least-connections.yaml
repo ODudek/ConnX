@@ -1,0 +1,31 @@
+# Configuration with least connections load balancing
+# Routes traffic to backend with fewest active connections
+server:
+  port: 8080
+  host: "0.0.0.0"
+  shutdownTimeout: 30
+
+backends:
+  - url: "http://backend1:8080"
+    weight: 1
+  - url: "http://backend2:8080"
+    weight: 1
+  - url: "http://backend3:8080"
+    weight: 1
+
+loadBalancing:
+  algorithm: "least-connections"
+
+healthCheck:
+  interval: 30
+  timeout: 5
+
+circuitBreaker:
+  enabled: true
+  maxFailures: 3      # Open circuit after 3 failures
+  timeout: 120        # Wait 2 minutes before trying half-open
+  resetTimeout: 30
+  halfOpenSuccess: 2
+
+rateLimit:
+  enabled: false

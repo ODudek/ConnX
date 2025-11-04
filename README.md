@@ -4,13 +4,18 @@ ConnX is a high-performance, lightweight HTTP reverse proxy and load balancer wr
 
 ## Features
 
-- High-performance HTTP reverse proxy
-- Round-robin load balancing
-- Active health checking of backend servers
-- Configuration via YAML file
-- Real-time backend server status monitoring
-- Request and error statistics tracking
-- Customizable timeouts and intervals
+### Core Features
+- **High-performance HTTP reverse proxy** - Built on gnet for efficient network operations
+- **Multiple load balancing algorithms**:
+  - Round-robin (default)
+  - Weighted round-robin (distribute traffic by backend weight)
+  - Least connections (route to backend with fewest active connections)
+- **Circuit breaker pattern** - Automatic failure detection and recovery
+- **Rate limiting** - Global or per-IP request throttling with token bucket algorithm
+- **Graceful shutdown** - Proper connection draining on SIGTERM/SIGINT
+- **Active health checking** - Periodic backend health verification
+- **Real-time metrics** - Prometheus-compatible `/metrics` endpoint
+- **Backward compatible configuration** - Supports both legacy and new config formats
 
 ## Quick Start
 
@@ -62,15 +67,53 @@ Create a `config.yaml` file with the following structure:
 server:
   port: 8080
   host: "0.0.0.0"
+  shutdownTimeout: 30  # seconds for graceful shutdown
 
 backends:
-  - "http://backend1:8080"
-  - "http://backend2:8080"
-  - "http://backend3:8080"
+  - url: "http://backend1:8080"
+    weight: 1
+  - url: "http://backend2:8080"
+    weight: 2  # Gets 2x more traffic
+  - url: "http://backend3:8080"
+    weight: 1
+
+loadBalancing:
+  algorithm: "round-robin"  # Options: round-robin, weighted-round-robin, least-connections
 
 healthCheck:
   interval: 30  # seconds
   timeout: 5    # seconds
+
+circuitBreaker:
+  enabled: true
+  maxFailures: 5      # Open circuit after N failures
+  timeout: 60         # Seconds before trying half-open state
+  resetTimeout: 30    # Seconds in half-open state
+  halfOpenSuccess: 2  # Successes needed to close circuit
+
+rateLimit:
+  enabled: false      # Enable/disable rate limiting
+  requestsPerSec: 100 # Requests per second allowed
+  burst: 200          # Maximum burst size
+  perIP: false        # true for per-IP, false for global
+```
+
+### Legacy Configuration Support
+
+The old configuration format is still supported for backward compatibility:
+
+```yaml
+server:
+  port: 8080
+  host: "0.0.0.0"
+
+backends:
+  - "http://backend1:8080"
+  - "http://backend2:8080"
+
+healthCheck:
+  interval: 30
+  timeout: 5
 ```
 
 ## Monitoring & Metrics
@@ -114,14 +157,23 @@ See `configs/examples/` for various configuration examples:
 - `production.yaml` - Production-ready configuration
 - `development.yaml` - Development environment
 - `monitoring.yaml` - With Prometheus integration
+- `with-rate-limiting.yaml` - Rate limiting enabled
+- `weighted-round-robin.yaml` - Weighted load balancing
+- `least-connections.yaml` - Least connections algorithm
+- `full-features.yaml` - All features enabled
 
 ### Default Values
 
 If not specified in the config file, the following default values are used:
 - Server port: 8080
 - Server host: "0.0.0.0"
+- Shutdown timeout: 30 seconds
 - Health check interval: 30 seconds
 - Health check timeout: 5 seconds
+- Load balancing algorithm: round-robin
+- Backend weight: 1
+- Circuit breaker: enabled (5 failures, 60s timeout)
+- Rate limiting: disabled
 
 ## CI/CD
 
@@ -150,17 +202,21 @@ docker pull odudek/connx:latest
 ConnX consists of several key components:
 
 - **Proxy Server**: Handles incoming connections and forwards requests to backends
-- **Server Pool**: Manages the collection of backend servers
-- **Health Checker**: Monitors backend server health
-- **Load Balancer**: Distributes requests across healthy backends
+- **Server Pool**: Manages the collection of backend servers with active connection tracking
+- **Health Checker**: Monitors backend server health with configurable intervals
+- **Load Balancer**: Distributes requests using configurable algorithms (round-robin, weighted, least-connections)
+- **Circuit Breaker**: Prevents cascade failures by temporarily disabling unhealthy backends
+- **Rate Limiter**: Token bucket-based rate limiting (global or per-IP)
 
 ## Performance
 
 ConnX is built with performance in mind:
 - Uses gnet for efficient network operations
-- Implements connection pooling
+- Tracks active connections for optimal load distribution
 - Minimizes memory allocations
 - Supports multicore processing
+- Circuit breaker prevents wasted requests to failing backends
+- Token bucket rate limiting for efficient request throttling
 
 ## Contributing
 

@@ -2,18 +2,20 @@ package proxy
 
 import (
 	"sync"
-	"sync/atomic"
+
+	"github.com/ODudek/ConnX/internal/loadbalancer"
 )
 
 type ServerPool struct {
     backends []*Backend
-    current  uint64
+    balancer loadbalancer.Balancer
     mutex    sync.RWMutex
 }
 
-func NewServerPool() *ServerPool {
+func NewServerPool(balancer loadbalancer.Balancer) *ServerPool {
     return &ServerPool{
         backends: make([]*Backend, 0),
+        balancer: balancer,
     }
 }
 
@@ -23,24 +25,33 @@ func (s *ServerPool) AddBackend(backend *Backend) {
     s.backends = append(s.backends, backend)
 }
 
-func (s *ServerPool) NextIndex() int {
-    return int(atomic.AddUint64(&s.current, uint64(1)) % uint64(len(s.backends)))
-}
-
 func (s *ServerPool) GetNextPeer() *Backend {
     s.mutex.RLock()
     defer s.mutex.RUnlock()
 
-    next := s.NextIndex()
-    l := len(s.backends)
-    for i := 0; i < l; i++ {
-        idx := (next + i) % l
-        if s.backends[idx].Alive {
-            s.backends[idx].IncrementRequests()
-            return s.backends[idx]
-        }
+    // Convert []*Backend to []loadbalancer.Backend
+    lbBackends := make([]loadbalancer.Backend, len(s.backends))
+    for i, b := range s.backends {
+        lbBackends[i] = b
     }
-    return nil
+
+    lbBackend := s.balancer.Next(lbBackends)
+    if lbBackend == nil {
+        return nil
+    }
+
+    // Convert back to *Backend
+    backend := lbBackend.(*Backend)
+    backend.IncrementRequests()
+    backend.IncrementActiveConns()
+
+    return backend
+}
+
+func (s *ServerPool) ReleaseBackend(backend *Backend) {
+    if backend != nil {
+        backend.DecrementActiveConns()
+    }
 }
 
 func (s *ServerPool) MarkBackendStatus(backend *Backend, alive bool) {
@@ -53,4 +64,10 @@ func (s *ServerPool) GetBackends() []*Backend {
     s.mutex.RLock()
     defer s.mutex.RUnlock()
     return s.backends
+}
+
+func (s *ServerPool) SetBalancer(balancer loadbalancer.Balancer) {
+    s.mutex.Lock()
+    defer s.mutex.Unlock()
+    s.balancer = balancer
 }
