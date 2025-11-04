@@ -15,7 +15,7 @@ func main() {
     configPath := flag.String("config", "configs/config.yaml", "path to config file")
     flag.Parse()
 
-    cfg, err := config.LoadWithLegacySupport(*configPath)
+    cfg, err := config.Load(*configPath)
     if err != nil {
         log.Fatalf("Failed to load config: %v", err)
     }
@@ -29,6 +29,17 @@ func main() {
         log.Fatalf("Failed to create server: %v", err)
     }
 
+    // Start config watcher for hot reload
+    watcher, err := config.NewWatcher(*configPath)
+    if err != nil {
+        log.Printf("Warning: Failed to create config watcher: %v", err)
+        log.Println("Hot reload disabled")
+    } else {
+        watcher.Start()
+        defer watcher.Stop()
+        log.Println("Hot reload enabled - config changes will be applied automatically")
+    }
+
     // Setup signal handling for graceful shutdown
     sigChan := make(chan os.Signal, 1)
     signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -40,6 +51,17 @@ func main() {
             errChan <- err
         }
     }()
+
+    // Listen for config reloads
+    if watcher != nil {
+        go func() {
+            for newCfg := range watcher.ReloadChannel() {
+                if err := srv.Reload(newCfg); err != nil {
+                    log.Printf("Error reloading config: %v", err)
+                }
+            }
+        }()
+    }
 
     // Wait for shutdown signal or error
     select {

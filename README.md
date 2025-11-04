@@ -10,12 +10,13 @@ ConnX is a high-performance, lightweight HTTP reverse proxy and load balancer wr
   - Round-robin (default)
   - Weighted round-robin (distribute traffic by backend weight)
   - Least connections (route to backend with fewest active connections)
+- **Hot reload configuration** - Update settings, backends, and algorithms without restart
 - **Circuit breaker pattern** - Automatic failure detection and recovery
 - **Rate limiting** - Global or per-IP request throttling with token bucket algorithm
 - **Graceful shutdown** - Proper connection draining on SIGTERM/SIGINT
 - **Active health checking** - Periodic backend health verification
 - **Real-time metrics** - Prometheus-compatible `/metrics` endpoint
-- **Backward compatible configuration** - Supports both legacy and new config formats
+- **Zero-downtime updates** - Add/remove backends dynamically without dropping connections
 
 ## Quick Start
 
@@ -98,22 +99,36 @@ rateLimit:
   perIP: false        # true for per-IP, false for global
 ```
 
-### Legacy Configuration Support
+### Hot Reload
 
-The old configuration format is still supported for backward compatibility:
+ConnX supports hot reload - you can modify the configuration file while the server is running, and changes will be applied automatically without restart:
 
-```yaml
-server:
-  port: 8080
-  host: "0.0.0.0"
+**What can be reloaded:**
+- Add/remove/update backends
+- Change backend weights
+- Switch load balancing algorithms
+- Update rate limiting settings
+- Modify health check intervals
+- Enable/disable circuit breaker
 
-backends:
-  - "http://backend1:8080"
-  - "http://backend2:8080"
+**How it works:**
+1. Edit your `config.yaml` file
+2. Save the changes
+3. ConnX automatically detects the change and reloads (within ~2 seconds)
+4. Changes are applied with zero downtime
 
-healthCheck:
-  interval: 30
-  timeout: 5
+**Example:**
+```bash
+# Start the proxy
+./bin/proxy -config=configs/config.yaml
+
+# In another terminal, edit the config
+vim configs/config.yaml  # Add a new backend
+
+# Check logs - you'll see:
+# Config file changed, reloading...
+# Adding new backend: http://backend4:8080 (weight: 1)
+# Configuration reloaded successfully
 ```
 
 ## Monitoring & Metrics
@@ -207,6 +222,7 @@ ConnX consists of several key components:
 - **Load Balancer**: Distributes requests using configurable algorithms (round-robin, weighted, least-connections)
 - **Circuit Breaker**: Prevents cascade failures by temporarily disabling unhealthy backends
 - **Rate Limiter**: Token bucket-based rate limiting (global or per-IP)
+- **Config Watcher**: Monitors configuration file and triggers hot reload on changes
 
 ## Performance
 
@@ -217,6 +233,7 @@ ConnX is built with performance in mind:
 - Supports multicore processing
 - Circuit breaker prevents wasted requests to failing backends
 - Token bucket rate limiting for efficient request throttling
+- Hot reload with zero downtime - no need to restart for config changes
 
 ## Contributing
 

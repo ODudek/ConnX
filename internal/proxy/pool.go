@@ -25,6 +25,19 @@ func (s *ServerPool) AddBackend(backend *Backend) {
     s.backends = append(s.backends, backend)
 }
 
+func (s *ServerPool) RemoveBackend(backend *Backend) {
+    s.mutex.Lock()
+    defer s.mutex.Unlock()
+
+    for i, b := range s.backends {
+        if b.URL.String() == backend.URL.String() {
+            // Remove backend from slice
+            s.backends = append(s.backends[:i], s.backends[i+1:]...)
+            return
+        }
+    }
+}
+
 func (s *ServerPool) GetNextPeer() *Backend {
     s.mutex.RLock()
     defer s.mutex.RUnlock()

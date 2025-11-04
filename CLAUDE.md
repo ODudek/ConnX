@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-ConnX is a high-performance HTTP reverse proxy and load balancer written in Go that uses the gnet framework for efficient network operations. The project provides multiple load balancing algorithms, circuit breaker pattern, rate limiting, health checking, graceful shutdown, and real-time backend monitoring.
+ConnX is a high-performance HTTP reverse proxy and load balancer written in Go that uses the gnet framework for efficient network operations. The project provides multiple load balancing algorithms, circuit breaker pattern, rate limiting, health checking, graceful shutdown, hot reload configuration, and real-time backend monitoring.
 
 ## Common Commands
 
@@ -30,16 +30,17 @@ ConnX is a high-performance HTTP reverse proxy and load balancer written in Go t
 
 The application follows a clean architecture pattern with these key packages:
 
-1. **cmd/proxy/main.go** - Entry point that loads configuration, starts the server, and handles graceful shutdown
+1. **cmd/proxy/main.go** - Entry point that loads configuration, starts the server, handles graceful shutdown, and monitors config changes
 2. **internal/server** - Main gnet-based HTTP server that handles incoming connections and `/metrics` endpoint
-3. **internal/proxy** - Backend management and server pool operations with circuit breaker integration
-4. **internal/health** - Health checking system for backend servers with metrics integration
-5. **internal/loadbalancer** - Load balancing algorithms (round-robin, weighted round-robin, least connections)
-6. **internal/circuitbreaker** - Circuit breaker pattern implementation for automatic failure handling
-7. **internal/ratelimit** - Token bucket rate limiting (global and per-IP)
-8. **internal/config** - Configuration loading and validation with backward compatibility
-9. **internal/metrics** - Prometheus-style metrics collection and exposition
-10. **pkg/** - Reusable utilities (HTTP parsing, logging)
+3. **internal/server/reload.go** - Hot reload logic for dynamic configuration updates without restart
+4. **internal/proxy** - Backend management and server pool operations with circuit breaker integration
+5. **internal/health** - Health checking system for backend servers with metrics integration
+6. **internal/loadbalancer** - Load balancing algorithms (round-robin, weighted round-robin, least connections)
+7. **internal/circuitbreaker** - Circuit breaker pattern implementation for automatic failure handling
+8. **internal/ratelimit** - Token bucket rate limiting (global and per-IP)
+9. **internal/config** - Configuration loading, validation, and file watching for hot reload
+10. **internal/metrics** - Prometheus-style metrics collection and exposition
+11. **pkg/** - Reusable utilities (HTTP parsing, logging)
 
 ### Key Architecture Patterns
 
@@ -124,6 +125,7 @@ Default values are applied in `config.Validate()` method:
 ### Load Balancing & Routing
 - ✅ **Multiple load balancing algorithms** - Round-robin, weighted round-robin, least connections
 - ✅ **Weighted backends** - Distribute traffic based on backend capacity/priority
+- ✅ **Dynamic backend updates** - Add/remove/update backends without restart
 
 ### Security & Reliability
 - ✅ **Rate limiting** - Token bucket rate limiting with global and per-IP modes
@@ -131,7 +133,9 @@ Default values are applied in `config.Validate()` method:
 - ✅ **Graceful shutdown** - Proper connection draining on SIGTERM/SIGINT with configurable timeout
 
 ### Configuration & Operations
-- ✅ **Backward compatibility** - Legacy config format automatically converted to new format
+- ✅ **Hot reload** - Dynamic configuration updates without restart
+- ✅ **Automatic file watching** - Detects config changes and applies them in real-time
+- ✅ **Zero-downtime updates** - Change backends, algorithms, and settings without dropping connections
 - ✅ **Comprehensive configuration** - All features configurable via YAML
 
 ## Potential Future Enhancements
