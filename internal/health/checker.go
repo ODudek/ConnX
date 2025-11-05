@@ -14,6 +14,8 @@ type Checker struct {
     interval time.Duration
     timeout  time.Duration
     metrics  *metrics.Metrics
+    ticker   *time.Ticker
+    done     chan bool
 }
 
 func NewChecker(pool *proxy.ServerPool, interval, timeout int, metrics *metrics.Metrics) *Checker {
@@ -22,16 +24,29 @@ func NewChecker(pool *proxy.ServerPool, interval, timeout int, metrics *metrics.
         interval: time.Duration(interval) * time.Second,
         timeout:  time.Duration(timeout) * time.Second,
         metrics:  metrics,
+        done:     make(chan bool),
     }
 }
 
 func (c *Checker) Start() {
-    ticker := time.NewTicker(c.interval)
+    c.ticker = time.NewTicker(c.interval)
     go func() {
-        for range ticker.C {
-            c.CheckHealth()
+        for {
+            select {
+            case <-c.ticker.C:
+                c.CheckHealth()
+            case <-c.done:
+                return
+            }
         }
     }()
+}
+
+func (c *Checker) Stop() {
+    if c.ticker != nil {
+        c.ticker.Stop()
+    }
+    close(c.done)
 }
 
 func (c *Checker) CheckHealth() {

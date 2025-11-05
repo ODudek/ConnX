@@ -1,12 +1,32 @@
 server:
   port: 8080
   host: "127.0.0.1"
+  shutdownTimeout: 30  # seconds
 
 backends:
-  - "http://localhost:8081"
-  - "http://localhost:8082"
-  - "http://localhost:8083"
+  - url: "http://localhost:8081"
+    weight: 1
+  - url: "http://localhost:8082"
+    weight: 1
+  - url: "http://localhost:8083"
+    weight: 1
+
+loadBalancing:
+  algorithm: "round-robin"  # Options: round-robin, weighted-round-robin, least-connections
 
 healthCheck:
-  interval: 30
-  timeout: 5
+  interval: 30  # seconds
+  timeout: 5    # seconds
+
+circuitBreaker:
+  enabled: true
+  maxFailures: 5
+  timeout: 60          # seconds
+  resetTimeout: 30     # seconds
+  halfOpenSuccess: 2
+
+rateLimit:
+  enabled: false
+  requestsPerSec: 100
+  burst: 200
+  perIP: false  # Set to true for per-IP rate limiting

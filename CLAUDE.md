@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-ConnX is a high-performance HTTP reverse proxy and load balancer written in Go that uses the gnet framework for efficient network operations. The project provides round-robin load balancing, health checking, and real-time backend monitoring.
+ConnX is a high-performance HTTP reverse proxy and load balancer written in Go that uses the gnet framework for efficient network operations. The project provides multiple load balancing algorithms, circuit breaker pattern, rate limiting, health checking, graceful shutdown, hot reload configuration, and real-time backend monitoring.
 
 ## Common Commands
 
@@ -30,14 +30,17 @@ ConnX is a high-performance HTTP reverse proxy and load balancer written in Go t
 
 The application follows a clean architecture pattern with these key packages:
 
-1. **cmd/proxy/main.go** - Entry point that loads configuration and starts the server
+1. **cmd/proxy/main.go** - Entry point that loads configuration, starts the server, handles graceful shutdown, and monitors config changes
 2. **internal/server** - Main gnet-based HTTP server that handles incoming connections and `/metrics` endpoint
-3. **internal/proxy** - Backend management and server pool operations
-4. **internal/health** - Health checking system for backend servers with metrics integration
-5. **internal/loadbalancer** - Load balancing algorithms (round-robin)
-6. **internal/config** - Configuration loading and validation
-7. **internal/metrics** - Prometheus-style metrics collection and exposition
-8. **pkg/** - Reusable utilities (HTTP parsing, logging)
+3. **internal/server/reload.go** - Hot reload logic for dynamic configuration updates without restart
+4. **internal/proxy** - Backend management and server pool operations with circuit breaker integration
+5. **internal/health** - Health checking system for backend servers with metrics integration
+6. **internal/loadbalancer** - Load balancing algorithms (round-robin, weighted round-robin, least connections)
+7. **internal/circuitbreaker** - Circuit breaker pattern implementation for automatic failure handling
+8. **internal/ratelimit** - Token bucket rate limiting (global and per-IP)
+9. **internal/config** - Configuration loading, validation, and file watching for hot reload
+10. **internal/metrics** - Prometheus-style metrics collection and exposition
+11. **pkg/** - Reusable utilities (HTTP parsing, logging)
 
 ### Key Architecture Patterns
 
@@ -60,15 +63,22 @@ The application follows a clean architecture pattern with these key packages:
 ### Configuration Structure
 
 Configuration is loaded from YAML with the following structure:
-- `server.port` / `server.host` - Server binding configuration
-- `backends[]` - List of backend URLs
+- `server.port` / `server.host` / `server.shutdownTimeout` - Server configuration
+- `backends[]` - List of backend configurations with URL and weight
+- `loadBalancing.algorithm` - Load balancing algorithm selection
 - `healthCheck.interval` / `healthCheck.timeout` - Health check parameters
+- `circuitBreaker.*` - Circuit breaker configuration
+- `rateLimit.*` - Rate limiting configuration
 
 Default values are applied in `config.Validate()` method:
 - Port: 8080
-- Host: "0.0.0.0" 
+- Host: "0.0.0.0"
+- Shutdown timeout: 30 seconds
 - Health check interval: 30 seconds
 - Health check timeout: 5 seconds
+- Load balancing: round-robin
+- Circuit breaker: enabled with 5 max failures, 60s timeout
+- Rate limit: disabled
 
 ### Health Checking System
 
@@ -105,22 +115,42 @@ Default values are applied in `config.Validate()` method:
 - Raw HTTP request/response handling for maximum performance
 - Comments are now in English throughout the codebase
 
-## Potential Enhancements
+## Implemented Features
 
 ### Performance & Monitoring
 - ✅ **Metrics endpoint** (`/metrics`) - Prometheus-style metrics for requests/sec, response times, error rates
-- **Connection pooling** - Reuse HTTP connections to backends instead of creating new ones per request
-- **Request/response compression** - Add gzip support for bandwidth optimization
-- **Circuit breaker pattern** - Temporarily stop sending requests to consistently failing backends
+- ✅ **Circuit breaker pattern** - Automatically opens circuit after failures, prevents cascade failures
+- ✅ **Active connection tracking** - Tracks active connections per backend for least-connections algorithm
 
 ### Load Balancing & Routing
-- **Multiple load balancing algorithms** - Weighted round-robin, least connections, IP hash
+- ✅ **Multiple load balancing algorithms** - Round-robin, weighted round-robin, least connections
+- ✅ **Weighted backends** - Distribute traffic based on backend capacity/priority
+- ✅ **Dynamic backend updates** - Add/remove/update backends without restart
+
+### Security & Reliability
+- ✅ **Rate limiting** - Token bucket rate limiting with global and per-IP modes
+- ✅ **Circuit breaker** - Automatic failure detection and recovery with half-open state
+- ✅ **Graceful shutdown** - Proper connection draining on SIGTERM/SIGINT with configurable timeout
+
+### Configuration & Operations
+- ✅ **Hot reload** - Dynamic configuration updates without restart
+- ✅ **Automatic file watching** - Detects config changes and applies them in real-time
+- ✅ **Zero-downtime updates** - Change backends, algorithms, and settings without dropping connections
+- ✅ **Comprehensive configuration** - All features configurable via YAML
+
+## Potential Future Enhancements
+
+### Performance & Monitoring
+- **Connection pooling** - Reuse HTTP connections to backends instead of creating new ones per request
+- **Request/response compression** - Add gzip support for bandwidth optimization
+
+### Load Balancing & Routing
 - **Path-based routing** - Route requests to different backend pools based on URL paths
 - **Header-based routing** - Route based on custom headers (e.g., API version, tenant ID)
 - **Sticky sessions** - Session affinity using cookies or IP-based routing
+- **IP hash algorithm** - Consistent hashing for request distribution
 
 ### Security & Reliability
-- **Rate limiting** - Per-IP or per-route request throttling
 - **TLS/HTTPS support** - SSL termination and backend HTTPS connections
 - **Authentication middleware** - JWT validation, API key checking
 - **Request/response transformation** - Header manipulation, request/response body modification
@@ -128,7 +158,6 @@ Default values are applied in `config.Validate()` method:
 ### Observability & Operations
 - **Structured logging** - JSON logs with correlation IDs, request tracing
 - **Health check dashboard** - Web UI showing backend status and statistics
-- **Graceful shutdown** - Proper connection draining on SIGTERM
 - **Hot configuration reload** - Update backends/config without restart
 
 ### Advanced Features

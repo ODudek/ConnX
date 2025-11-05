@@ -1,0 +1,33 @@
+# Configuration with all features enabled
+server:
+  port: 8080
+  host: "0.0.0.0"
+  shutdownTimeout: 30
+
+backends:
+  - url: "http://backend1:8080"
+    weight: 3
+  - url: "http://backend2:8080"
+    weight: 2
+  - url: "http://backend3:8080"
+    weight: 1
+
+loadBalancing:
+  algorithm: "weighted-round-robin"
+
+healthCheck:
+  interval: 15  # Check health every 15 seconds
+  timeout: 3    # Timeout after 3 seconds
+
+circuitBreaker:
+  enabled: true
+  maxFailures: 5      # Open after 5 consecutive failures
+  timeout: 60         # Wait 60 seconds before trying half-open
+  resetTimeout: 30    # Wait 30 seconds in half-open
+  halfOpenSuccess: 2  # Need 2 successes to close circuit
+
+rateLimit:
+  enabled: true
+  requestsPerSec: 500  # 500 requests per second
+  burst: 1000          # Allow bursts up to 1000
+  perIP: true          # Per-IP limiting for DDoS protection
